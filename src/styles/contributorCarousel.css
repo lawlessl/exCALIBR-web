@@ -1,0 +1,78 @@
+/* ── Contributor Carousel ────────────────────────────────────────────────────
+   Save to: src/styles/ContributorCarousel.css
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Alignment wrapper — matches .section-inner constraints exactly */
+.cc-outer {
+  max-width: clamp(560px, 88vw, 1400px);
+  margin: 0.75rem auto 0;
+  padding: 0 2.5rem;
+}
+
+/* Clipping + edge-fade mask — scoped inside the aligned wrapper */
+.cc-root {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  /* Edge-fade mask: transparent → fully opaque over first/last 12% */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+}
+
+/* Scrolling track: all items in a single row, animates leftward indefinitely  */
+.cc-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  /* gap between logo slots */
+  gap: 5.5rem;
+  padding: 0.4rem 0;
+  animation: cc-scroll 60s linear infinite;
+  will-change: transform;
+}
+
+/* Animation moves exactly half the track (= one full set of 7 logos),
+   so when it resets to 0 the duplicate picks up seamlessly.              */
+@keyframes cc-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Each logo slot: fixed bounding box, logos normalized inside via object-fit  */
+.cc-slot {
+  flex: 0 0 auto;
+  /* Fixed slot dimensions — all logos are constrained to this box             */
+  width: 180px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cc-slot img {
+  /* Normalized size: fill the slot's height, never exceed its width           */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Slight desaturation so logos sit quietly alongside the app's palette      */
+  /* filter: grayscale(15%) opacity(0.75); */
+  transition: filter 0.2s ease;
+  user-select: none;
+  pointer-events: none;
+}
