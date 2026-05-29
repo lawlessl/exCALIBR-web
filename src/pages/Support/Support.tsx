@@ -18,6 +18,10 @@ const FAQS = [
     a: `exCALIBR maps calibrated scores to ACMG/AMP evidence levels following the points-based system introduced in Tavtigian et al. (PMID: 32720330). Positive points represent pathogenic functional evidence (PS3), and negative points represent benign functional evidence (BS3), with strength increasing with the absolute point value: Supporting (±1), Moderate (±2–3), Strong (±4–7), and Very Strong (±8). The dashed lines on the chart indicate the score thresholds for each evidence level. Hovering over the chart shows the evidence level at any score.`,
   },
   {
+    q: "What do the two LR+ and posterior probability values mean?",
+    a: `To ensure robust and sufficiently conservative evidence assignments, exCALIBR uses the 5th and 9th percentiles of the LR+ across bootstraps to assign pathogenic and benign evidence, respectively. Use LR^+_p / Pr_p to compute pathogenic evidence, and LR^+_b / Pr_b to compute benign evidence.`
+  },
+  {
     q: "What is the prior probability and should I override it?",
     a: `In this case, the prior probability represents the probability that a variant (in your gene of interest) sampled from the population is pathogenic. By default exCALIBR estimates this empirically from your dataset. In most cases the default is appropriate. You should only override it if you have an independent, well-justified estimate from population genetics or clinical databases. An incorrect prior will shift all evidence thresholds and can lead to miscalibrated results.`,
   },
@@ -36,7 +40,7 @@ const FAQS = [
   {
     q: "How do I cite exCALIBR?",
     a: `Zeiberg D, Stewart R, Jain S, et al. Gene-based calibration of high-throughput functional assays for clinical variant classification. bioRxiv 2025.04.29.651326. doi.org/10.1101/2025.04.29.651326`,
-  },
+  }
 ];
 
 // ── FAQ item ──────────────────────────────────────────────────────────────────
