@@ -247,15 +247,17 @@ export function lrCurveFromFits(
     return { xArr, lrP5: nan(), lrP95: nan(), postP5: nan(), postP95: nan() };
   }
 
-  // Compute LR+(x) per bootstrap: [n_valid, n_x]
-  const lrMatrix: number[][] = valid.map((iter) => {
+  // Compute log LR+(x) = log f_p(x) - log f_b(x) per bootstrap: [n_valid, n_x]
+  // Matches visualize.py: log_lr_plus = log_fp - log_fb  (line 367)
+  const logLrMatrix: number[][] = valid.map((iter) => {
     const { component_params, weights } = iter[modelKey].fit;
 
-    // f_pathogenic at each x
+    // log f_pathogenic at each x
     const fpW = weights[pathIdx];
-    const fp = xArr.map((x) =>
-      jointDensities(x, component_params, fpW).reduce((s, v) => s + v, 0),
-    );
+    const logFp = xArr.map((x) => {
+      const d = jointDensities(x, component_params, fpW).reduce((s, v) => s + v, 0);
+      return d > 0 ? Math.log(d) : NaN;
+    });
 
     // Effective benign weight vector — "avg" averages the two weight vectors
     // element-wise, matching Python's (w_b + w_s) / 2 before density evaluation.
@@ -270,32 +272,37 @@ export function lrCurveFromFits(
       fbW = weights[synIdx!];
     }
 
-    const fb = xArr.map((x) =>
-      jointDensities(x, component_params, fbW).reduce((s, v) => s + v, 0),
-    );
+    // log f_benign at each x
+    const logFb = xArr.map((x) => {
+      const d = jointDensities(x, component_params, fbW).reduce((s, v) => s + v, 0);
+      return d > 0 ? Math.log(d) : NaN;
+    });
 
-    return fp.map((fpi, xi) => (fb[xi] > 0 ? fpi / fb[xi] : NaN));
+    return logFp.map((lp, xi) => lp - logFb[xi]); // log LR+
   });
 
-  // 5th / 95th percentile at each x position, matching np.nanpercentile
+  // 5th / 95th percentile of log LR+ at each x, matching:
+  //   np.nanpercentile(log_lr_plus, 5|95, axis=0)  (visualize.py lines 443–445)
+  // Then exponentiate: percentile(log X) ≠ log(percentile(X)) for heavy-tailed LR+.
   const nX = xArr.length;
   const lrP5 = new Array<number>(nX);
   const lrP95 = new Array<number>(nX);
 
   for (let xi = 0; xi < nX; xi++) {
-    const col = lrMatrix
+    const col = logLrMatrix
       .map((row) => row[xi])
       .filter(isFinite)
       .sort((a, b) => a - b);
     if (col.length === 0) {
       lrP5[xi] = lrP95[xi] = NaN;
     } else {
-      lrP5[xi] = quantile(col, 0.05);
-      lrP95[xi] = quantile(col, 0.95);
+      lrP5[xi] = Math.exp(quantile(col, 0.05));
+      lrP95[xi] = Math.exp(quantile(col, 0.95));
     }
   }
 
   // Bayes posterior: lr * prior / ((lr - 1) * prior + 1)
+  // Matches bayesian_thresholds.py bayes_posterior_from_lr()
   const posterior = (lr: number): number =>
     isFinite(lr) ? (lr * prior) / ((lr - 1) * prior + 1) : NaN;
 

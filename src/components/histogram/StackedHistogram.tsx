@@ -107,6 +107,19 @@ function findInterval(
   return null;
 }
 
+// ── LR+ number formatting ─────────────────────────────────────────────────────
+
+/**
+ * Format an LR+ value for tooltip display using 3 significant figures.
+ * Values in [0.001, 10000) are shown as plain decimals; outside that range
+ * exponential notation keeps the string compact (e.g. "1.23e+5", "4.56e-7").
+ */
+function formatLR(lr: number): string {
+  if (!isFinite(lr) || lr <= 0) return "—";
+  if (lr >= 0.001 && lr < 10000) return Number(lr.toPrecision(3)).toString();
+  return lr.toExponential(2);
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StackedHistogram({
   categories,
@@ -699,23 +712,35 @@ export default function StackedHistogram({
                 )}
               </div>
               {(tooltip.lrP5 !== null || tooltip.lrP95 !== null) && (
-                <div className="chart-tooltip-lr-table">
-                  {tooltip.lrP5 !== null && (
-                    <div className="chart-tooltip-lr">
-                      <span className="chart-tooltip-lr-label">LR⁺ p5</span>
-                      <span className="chart-tooltip-lr-value">{Number(tooltip.lrP5.toPrecision(3)).toString()}</span>
-                      <span className="chart-tooltip-lr-label">Post</span>
-                      <span className="chart-tooltip-lr-value">{((tooltip.postP5 ?? 0) * 100).toFixed(1)}%</span>
-                    </div>
-                  )}
-                  {tooltip.lrP95 !== null && (
-                    <div className="chart-tooltip-lr">
-                      <span className="chart-tooltip-lr-label">LR⁺ p95</span>
-                      <span className="chart-tooltip-lr-value">{Number(tooltip.lrP95.toPrecision(3)).toString()}</span>
-                      <span className="chart-tooltip-lr-label">Post</span>
-                      <span className="chart-tooltip-lr-value">{((tooltip.postP95 ?? 0) * 100).toFixed(1)}%</span>
-                    </div>
-                  )}
+                <div className="chart-tooltip-lr-section">
+                  {(
+                    [
+                      { lr: tooltip.lrP5,  post: tooltip.postP5,  type: "path", pct: "p5"  },
+                      { lr: tooltip.lrP95, post: tooltip.postP95, type: "ben",  pct: "p95" },
+                    ] as const
+                  ).map(({ lr, post, type, pct }) => {
+                    if (lr === null) return null;
+                    const fmt = formatLR(lr);
+                    return (
+                      <div key={type} className="chart-tooltip-lr-row">
+                        {/* LR⁺ subscript label — colour matches interval shading */}
+                        <span className={`chart-tooltip-lr-type ${type}`}>
+                          LR<sup>+</sup><sub>{type}</sub>
+                          <span className="chart-tooltip-lr-pct"> ({pct})</span>
+                        </span>
+                        <span className="chart-tooltip-lr-val">{formatLR(lr)}</span>
+                        {/* P(pathogenic | score) using this percentile's LR+ */}
+                        <span className="chart-tooltip-lr-post">
+                          P(path|·) {((post ?? 0) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {/* Soft note: both rows use P(path|score), differing only in which
+                      bootstrap percentile of LR⁺ is used — not a flipped LR⁺. */}
+                  <div className="chart-tooltip-lr-note">
+                    5th/95th pct of bootstrap LR⁺
+                  </div>
                 </div>
               )}
             </div>
