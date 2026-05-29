@@ -16,14 +16,19 @@ import {
 import { SAMPLE_LABELS, SAMPLE_COLORS } from "../../types";
 import {
   type BootstrapIteration,
+  type LrCurve,
   sampleDensityMatrix,
   componentDensityMatrices,
   percentileBands,
   linspace,
+  lrCurveFromFits,
 } from "./densityUtils";
+
+import './index.css'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DISPLAY_ORDER = [0, 1, 2, 3];
+const N_PTS = 600;
 
 const INTERVAL_STROKE_WIDTH = 1;
 const INTERVAL_DASH = "4,3";
@@ -46,6 +51,10 @@ interface TooltipState {
   hoverCounts: Record<number, number>; // sampleId → bin count at cursor x
   intervalKey: string | null;
   intervalColor: string | null;
+  lrP5: number | null;
+  lrP95: number | null;
+  postP5: number | null;
+  postP95: number | null;
 }
 
 interface StackedHistogramProps {
@@ -58,7 +67,26 @@ interface StackedHistogramProps {
   dims?: Partial<Pick<ChartDimensions, "rowHeight" | "rowGap">>;
 }
 
-// ── Helper: find which interval a score falls into ────────────────────────────
+const POINTS_TO_CODE: Record<string, string> = {
+  "+1": "+1 (PS3 Supporting)",
+  "+2": "+2 (PS3 Moderate)",
+  "+3": "+3 (PS3 Moderate+)",
+  "+4": "+4 (PS3 Strong)",
+  "+5": "+5 (PS3 Strong)",
+  "+6": "+6 (PS3 Strong)",
+  "+7": "+7 (PS3 Strong)",
+  "+8": "+8 (PS3 Very Strong)",
+  "0":  "0 (No evidence)",
+  "-1": "-1 (BS3 Supporting)",
+  "-2": "-2 (BS3 Moderate)",
+  "-3": "-3 (BS3 Moderate+)",
+  "-4": "-4 (BS3 Strong)",
+  "-5": "-5 (BS3 Strong)",
+  "-6": "-6 (BS3 Strong)",
+  "-7": "-7 (BS3 Strong)",
+  "-8": "-8 (BS3 Very Strong)",
+};
+
 function findInterval(
   score: number,
   intervals: ReturnType<typeof parseIntervals>,
@@ -67,10 +95,11 @@ function findInterval(
     const lo = isFinite(iv.start) ? iv.start : -Infinity;
     const hi = isFinite(iv.end) ? iv.end : Infinity;
     if (score >= lo && score < hi) {
-      const abs = Math.abs(iv.level);
-      const tag = iv.isPathogenic ? `PS${abs}` : `BS${abs}`;
+      const pointKey = iv.isPathogenic
+        ? `+${Math.abs(iv.level)}`
+        : `-${Math.abs(iv.level)}`;
       return {
-        key: tag,
+        key: POINTS_TO_CODE[pointKey] ?? pointKey,
         color: iv.isPathogenic ? COLOR_POSITIVE : COLOR_NEGATIVE,
       };
     }
@@ -93,6 +122,8 @@ export default function StackedHistogram({
   const overlayRef = useRef<SVGGElement | null>(null);
   const xScaleRef = useRef<d3.ScaleLinear<number, number> | null>(null);
   const binsMapRef = useRef<Record<number, d3.Bin<number, number>[]>>({});
+  const lrCurveRef = useRef<LrCurve | null>(null);
+  const xArrRef = useRef<number[]>([]);
 
   const [containerWidth, setContainerWidth] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipState>({
@@ -103,6 +134,10 @@ export default function StackedHistogram({
     hoverCounts: {},
     intervalKey: null,
     intervalColor: null,
+    lrP5: null,
+    lrP95: null,
+    postP5: null,
+    postP95: null,
   });
 
   // ── Resize observer ──────────────────────────────────────────────────────
@@ -140,6 +175,47 @@ export default function StackedHistogram({
       ).filter((c): c is CategoryData => !!c),
     [categories],
   );
+
+  // Score grid for LR+ computation — derived from data extent only, not pixel width,
+  // so the LR curve doesn't recompute on every container resize.
+  const xArr = useMemo(() => {
+    if (ordered.length === 0) return [];
+    const allScores = ordered.flatMap((c) => c.scores);
+    const [mn, mx] = d3.extent(allScores) as [number, number];
+    const pad = (mx - mn) * 0.04 || 0.5;
+    return linspace(mn - pad, mx + pad, N_PTS);
+  }, [ordered]);
+
+  // Precomputed LR+ and posterior percentile curves across all bootstraps.
+  // Mirrors visualize.py: f_p / f_b per bootstrap → 5th/95th pct → Bayes posterior.
+  const lrCurve = useMemo<LrCurve | null>(() => {
+    const activeModel = modelKey ?? result?.n_c ?? null;
+    if (!bootstrapFits || !result || !activeModel || xArr.length === 0) return null;
+
+    // Weight-array index = position in sorted list of present sampleIds.
+    // This matches the Python pipeline's index adjustment for absent samples.
+    const presentIds = ordered.map((c) => c.sampleId).sort((a, b) => a - b);
+    const indexOf = (id: number) => {
+      const i = presentIds.indexOf(id);
+      return i === -1 ? null : i;
+    };
+
+    return lrCurveFromFits(
+      xArr,
+      bootstrapFits,
+      activeModel,
+      indexOf(0), // pathogenic
+      indexOf(1), // benign/LP
+      indexOf(3), // synonymous
+      result.benign_method,
+      result.prior,
+    );
+  }, [bootstrapFits, result, modelKey, xArr, ordered]);
+
+  // Keep refs in sync so the D3 mousemove closure can access current values
+  // without being recreated on every render.
+  lrCurveRef.current = lrCurve;
+  xArrRef.current = xArr;
 
   const n = ordered.length;
   const totalInnerH = n * rowHeight + (n - 1) * rowGap;
@@ -247,7 +323,6 @@ export default function StackedHistogram({
       if (bootstrapFits && activeModel) {
         // Build x range from the shared scale domain
         const [xMin, xMax] = xScale.domain() as [number, number];
-        const N_PTS = 600;
         const xArr = linspace(xMin, xMax, N_PTS);
 
         const matrix = sampleDensityMatrix(
@@ -513,6 +588,26 @@ export default function StackedHistogram({
           hoverCounts[Number(sid)] = hit?.length ?? 0;
         }
 
+        // Look up LR+ and posterior at cursor score via nearest-index lookup.
+        // xArr is evenly spaced so index = round((score - x0) / step).
+        let lrP5: number | null = null;
+        let lrP95: number | null = null;
+        let postP5: number | null = null;
+        let postP95: number | null = null;
+        const lc = lrCurveRef.current;
+        const xa = xArrRef.current;
+        if (lc && xa.length > 1) {
+          const step = (xa[xa.length - 1] - xa[0]) / (xa.length - 1);
+          const xi = Math.max(
+            0,
+            Math.min(xa.length - 1, Math.round((score - xa[0]) / step)),
+          );
+          if (isFinite(lc.lrP5[xi])) lrP5 = lc.lrP5[xi];
+          if (isFinite(lc.lrP95[xi])) lrP95 = lc.lrP95[xi];
+          if (isFinite(lc.postP5[xi])) postP5 = lc.postP5[xi];
+          if (isFinite(lc.postP95[xi])) postP95 = lc.postP95[xi];
+        }
+
         overlay
           .select(".crosshair-line")
           .attr("x1", mx)
@@ -532,6 +627,10 @@ export default function StackedHistogram({
           hoverCounts,
           intervalKey: ivMatch?.key ?? null,
           intervalColor: ivMatch?.color ?? null,
+          lrP5,
+          lrP95,
+          postP5,
+          postP95,
         });
       })
       .on("mouseleave", () => {
@@ -602,6 +701,26 @@ export default function StackedHistogram({
               ) : (
                 <div className="chart-tooltip-interval chart-tooltip-none">
                   —
+                </div>
+              )}
+              {(tooltip.lrP5 !== null || tooltip.lrP95 !== null) && (
+                <div className="chart-tooltip-lr-table">
+                  {tooltip.lrP5 !== null && (
+                    <div className="chart-tooltip-lr">
+                      <span className="chart-tooltip-lr-label">LR⁺ p5</span>
+                      <span className="chart-tooltip-lr-value">{Number(tooltip.lrP5.toPrecision(3)).toString()}</span>
+                      <span className="chart-tooltip-lr-label">Post</span>
+                      <span className="chart-tooltip-lr-value">{((tooltip.postP5 ?? 0) * 100).toFixed(1)}%</span>
+                    </div>
+                  )}
+                  {tooltip.lrP95 !== null && (
+                    <div className="chart-tooltip-lr">
+                      <span className="chart-tooltip-lr-label">LR⁺ p95</span>
+                      <span className="chart-tooltip-lr-value">{Number(tooltip.lrP95.toPrecision(3)).toString()}</span>
+                      <span className="chart-tooltip-lr-label">Post</span>
+                      <span className="chart-tooltip-lr-value">{((tooltip.postP95 ?? 0) * 100).toFixed(1)}%</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

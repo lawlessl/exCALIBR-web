@@ -1,0 +1,201 @@
+/* ── Support page ── */
+
+.support-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  
+  .support-main {
+    flex: 1;
+    padding: 3rem 0 5rem;
+  }
+  
+  .support-inner {
+    max-width: clamp(560px, 88vw, 860px);
+    margin: 0 auto;
+    padding: 0 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+  
+  /* ── Title ── */
+  .support-title-block {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.75rem;
+  }
+  
+  .support-title {
+    font-family: var(--font-serif);
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    margin-bottom: 0.5rem;
+  }
+  
+  .support-subtitle {
+    font-size: 0.96rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  
+  /* ── Contact cards ── */
+  .support-contacts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+  
+  @media (max-width: 640px) {
+    .support-contacts {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .support-contact-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .support-contact-label {
+    font-family: var(--font-mono);
+    font-size: 0.67rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  
+  .support-contact-desc {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    flex: 1;
+  }
+  
+  .support-contact-email {
+    font-family: var(--font-mono);
+    font-size: 0.84rem;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 0.25rem;
+    transition: color 0.15s;
+  }
+  
+  .support-contact-email:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  
+  /* ── GitHub ── */
+  .support-github {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+  }
+  
+  .support-github-link {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  
+  .support-github-link:hover {
+    color: var(--text-primary);
+  }
+  
+  /* ── FAQ ── */
+  .support-faq-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .support-faq-title {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  
+  .support-faq-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .faq-item {
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .faq-item:last-child {
+    border-bottom: none;
+  }
+  
+  .faq-trigger {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s;
+  }
+  
+  .faq-trigger:hover {
+    background: var(--bg-subtle);
+  }
+  
+  .faq-item--open .faq-trigger {
+    background: var(--bg-subtle);
+  }
+  
+  .faq-question {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+  
+  .faq-chevron {
+    font-size: 0.58rem;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+  }
+  
+  .faq-answer {
+    padding: 0 1.4rem 1.1rem;
+    border-top: 1px solid var(--border);
+  }
+  
+  .faq-answer p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.75;
+    margin: 0;
+    padding-top: 0.9rem;
+  }

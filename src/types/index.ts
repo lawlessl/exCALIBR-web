@@ -1,6 +1,6 @@
 export interface VariantRow {
   score: number;
-  sample: number;
+  sample_assignments: string;
   Dataset?: string;
 }
 
@@ -27,12 +27,14 @@ export interface PipelineParams {
   fitsPerBootstrap: number;
   benignMethod: "benign" | "avg" | "synonymous";
   conservativeMonotonicity: boolean;
+  manualPrior: number | null;
 }
 
 export const DEFAULT_PARAMS: PipelineParams = {
   components: [3],
-  nBootstraps: 1000,
-  fitsPerBootstrap: 100,
+  nBootstraps: 20,
+  fitsPerBootstrap: 8,
   benignMethod: "avg",
-  conservativeMonotonicity: true,
+  conservativeMonotonicity: false,
+  manualPrior: null,
 };

@@ -21,10 +21,10 @@ export function parseCSV(text: string): ParseResult {
     .map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ""));
 
   const scoreIdx = headers.indexOf("score");
-  const sampleIdx = headers.indexOf("sample");
+  const sampleIdx = headers.indexOf("sample_assignments");
 
   if (scoreIdx === -1) errors.push('Missing required column: "score"');
-  if (sampleIdx === -1) errors.push('Missing required column: "sample"');
+  if (sampleIdx === -1) errors.push('Missing required column: "sample_assignments"');
 
   if (errors.length > 0) return { data: [], errors };
 
@@ -40,12 +40,12 @@ export function parseCSV(text: string): ParseResult {
     const clean = cols.map((c) => c.trim().replace(/^"|"$/g, ""));
 
     const score = parseFloat(clean[scoreIdx]);
-    const sample = parseInt(clean[sampleIdx], 10);
+    const sample_assignments = (clean[sampleIdx] ?? "").trim();
 
-    if (isNaN(score) || isNaN(sample)) continue;
-    if (sample < 0 || sample > 3) continue;
+    if (isNaN(score) || !sample_assignments) continue;
+    
+    const row: VariantRow = { score, sample_assignments };
 
-    const row: VariantRow = { score, sample };
     if (datasetIdx !== -1 && clean[datasetIdx]) {
       row.Dataset = clean[datasetIdx];
     }
@@ -62,8 +62,14 @@ export function parseCSV(text: string): ParseResult {
 export function groupBySample(rows: VariantRow[]): Record<number, number[]> {
   const groups: Record<number, number[]> = {};
   for (const row of rows) {
-    if (!groups[row.sample]) groups[row.sample] = [];
-    groups[row.sample].push(row.score);
+    const ids = String(row.sample_assignments)
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n));
+    for (const id of ids) {
+      if (!groups[id]) groups[id] = [];
+      groups[id].push(row.score);
+    }
   }
   return groups;
 }

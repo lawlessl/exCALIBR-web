@@ -191,6 +191,123 @@ export function linspace(start: number, end: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => start + i * step);
 }
 
+// ── LR+ and posterior curve ───────────────────────────────────────────────────
+
+export interface LrCurve {
+  xArr: number[];
+  lrP5: number[];   // 5th-percentile LR+ across bootstraps (used for pathogenic thresholds)
+  lrP95: number[];  // 95th-percentile LR+ across bootstraps (used for benign thresholds)
+  postP5: number[]; // Bayes posterior from lrP5 and prior
+  postP95: number[]; // Bayes posterior from lrP95 and prior
+}
+
+/**
+ * Compute LR+(x) = f_pathogenic(x) / f_benign(x) for each bootstrap, then
+ * return the 5th/95th percentile bands and their Bayes posteriors.
+ *
+ * Mirrors process_component_fits in visualize.py:
+ *   log_lr_plus = log_fp - log_fb  per bootstrap
+ *   nanpercentile(log_lr_plus, 5|95, axis=0)
+ *   posterior = lr * prior / ((lr - 1) * prior + 1)
+ *
+ * Weight-array indices must account for absent samples exactly as the Python
+ * pipeline does (indices shift down for each empty sample with a lower position).
+ * Pass the position of each sample type in the sorted list of present sampleIds:
+ *   presentIds = ordered.map(c => c.sampleId).sort()
+ *   pathIdx  = presentIds.indexOf(0)  // -1 → null
+ *   benignIdx = presentIds.indexOf(1) // -1 → null
+ *   synIdx   = presentIds.indexOf(3)  // -1 → null
+ *
+ * @param xArr        Score positions to evaluate (e.g. linspace output)
+ * @param iterations  Bootstrap fits array
+ * @param modelKey    "2c" | "3c" | "4c"
+ * @param pathIdx     Weight-array index for pathogenic sample, or null if absent
+ * @param benignIdx   Weight-array index for B/LB sample, or null if absent
+ * @param synIdx      Weight-array index for synonymous sample, or null if absent
+ * @param benignMethod "benign" | "avg" | "synonymous"  — matches pipeline config
+ * @param prior       Median prior probability from calibration result
+ */
+export function lrCurveFromFits(
+  xArr: number[],
+  iterations: BootstrapIteration[],
+  modelKey: string,
+  pathIdx: number | null,
+  benignIdx: number | null,
+  synIdx: number | null,
+  benignMethod: string,
+  prior: number,
+): LrCurve {
+  const nan = (): number[] => new Array<number>(xArr.length).fill(NaN);
+
+  const valid = iterations.filter((iter) => iter[modelKey] !== undefined);
+  const hasBenign = benignIdx !== null;
+  const hasSyn = synIdx !== null;
+
+  if (valid.length === 0 || pathIdx === null || (!hasBenign && !hasSyn)) {
+    return { xArr, lrP5: nan(), lrP95: nan(), postP5: nan(), postP95: nan() };
+  }
+
+  // Compute LR+(x) per bootstrap: [n_valid, n_x]
+  const lrMatrix: number[][] = valid.map((iter) => {
+    const { component_params, weights } = iter[modelKey].fit;
+
+    // f_pathogenic at each x
+    const fpW = weights[pathIdx];
+    const fp = xArr.map((x) =>
+      jointDensities(x, component_params, fpW).reduce((s, v) => s + v, 0),
+    );
+
+    // Effective benign weight vector — "avg" averages the two weight vectors
+    // element-wise, matching Python's (w_b + w_s) / 2 before density evaluation.
+    let fbW: number[];
+    if (benignMethod === "avg" && hasBenign && hasSyn) {
+      fbW = weights[benignIdx!].map((w, k) => (w + weights[synIdx!][k]) / 2);
+    } else if (benignMethod === "synonymous" && hasSyn) {
+      fbW = weights[synIdx!];
+    } else if (hasBenign) {
+      fbW = weights[benignIdx!];
+    } else {
+      fbW = weights[synIdx!];
+    }
+
+    const fb = xArr.map((x) =>
+      jointDensities(x, component_params, fbW).reduce((s, v) => s + v, 0),
+    );
+
+    return fp.map((fpi, xi) => (fb[xi] > 0 ? fpi / fb[xi] : NaN));
+  });
+
+  // 5th / 95th percentile at each x position, matching np.nanpercentile
+  const nX = xArr.length;
+  const lrP5 = new Array<number>(nX);
+  const lrP95 = new Array<number>(nX);
+
+  for (let xi = 0; xi < nX; xi++) {
+    const col = lrMatrix
+      .map((row) => row[xi])
+      .filter(isFinite)
+      .sort((a, b) => a - b);
+    if (col.length === 0) {
+      lrP5[xi] = lrP95[xi] = NaN;
+    } else {
+      lrP5[xi] = quantile(col, 0.05);
+      lrP95[xi] = quantile(col, 0.95);
+    }
+  }
+
+  // Bayes posterior: lr * prior / ((lr - 1) * prior + 1)
+  const posterior = (lr: number): number =>
+    isFinite(lr) ? (lr * prior) / ((lr - 1) * prior + 1) : NaN;
+
+  return {
+    xArr,
+    lrP5,
+    lrP95,
+    postP5: lrP5.map(posterior),
+    postP95: lrP95.map(posterior),
+  };
+}
+
 /**
  * Compute the weighted density for each individual component separately,
  * across all bootstrap iterations, for one sample.

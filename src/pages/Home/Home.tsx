@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import CSVUploader from "../components/upload/CSVUploader";
-import ParamPanel from "../components/upload/ParamPanel";
-import SampleHistogram from "../components/histogram/SampleHistogram";
+import { Link, useNavigate } from "react-router-dom";
+import CSVUploader from "../../components/upload/CSVUploader/CSVUploader";
+import ParamPanel from "../../components/upload/ParamPanel/ParamPanel";
+import SampleHistogram from "../../components/histogram/SampleHistogram";
 import {
   type VariantRow,
   type PipelineParams,
   DEFAULT_PARAMS,
   SAMPLE_LABELS,
   SAMPLE_COLORS,
-} from "../types";
-import { groupBySample } from "../utils/csvParser";
-import ContributorCarousel from "../components/carousel/contributorCarousel";
+} from "../../types";
+import { groupBySample } from "../../utils/csvParser";
+import ContributorCarousel from "../../components/carousel/contributorCarousel";
+import "./Home.css";
+
+const API_BASE = "https://excalibr.org";
 
 const GitHubIcon = () => (
   <svg
@@ -28,26 +31,64 @@ const GitHubIcon = () => (
 export default function Home() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<VariantRow[]>([]);
+  const [rawFile, setRawFile] = useState<File | null>(null);
   const [filename, setFilename] = useState<string>("");
   const [params, setParams] = useState<PipelineParams>({ ...DEFAULT_PARAMS });
   const [showDist, setShowDist] = useState(false);
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const groups = groupBySample(rows);
   const sampleIds = Object.keys(groups).map(Number).sort();
   const hasData = sampleIds.length > 0;
 
-  // Shared score range across all samples
   const allScores = rows.map((r) => r.score);
   const globalMin = allScores.length ? Math.min(...allScores) : 0;
   const globalMax = allScores.length ? Math.max(...allScores) : 1;
 
-  const handleSubmit = () => {
-    // Persist CSV rows so the results page can read them
-    sessionStorage.setItem("excalibr_csv_rows", JSON.stringify(rows));
-    sessionStorage.setItem("excalibr_csv_filename", filename);
-    // Navigate to results — user will upload the two JSON files there
-    navigate("/results/local");
+  const handleSubmit = async () => {
+    if (!rawFile) return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", rawFile);
+      formData.append("params", JSON.stringify({
+        components: params.components,
+        nBootstraps: params.nBootstraps,
+        fitsPerBootstrap: params.fitsPerBootstrap,
+        benignMethod: params.benignMethod,
+        conservativeMonotonicity: params.conservativeMonotonicity,
+        manualPrior: params.manualPrior,
+      }));
+      if (email.trim()) {
+        formData.append("email", email.trim());
+      }
+
+      const res = await fetch(`${API_BASE}/api/jobs`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? `Server error ${res.status}`);
+      }
+
+      const { job_id } = await res.json();
+
+      // Persist CSV rows for the results page
+      sessionStorage.setItem("excalibr_csv_rows", JSON.stringify(rows));
+      sessionStorage.setItem("excalibr_csv_filename", filename);
+
+      navigate(`/results/${job_id}`);
+    } catch (e) {
+      setSubmitError((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -57,7 +98,7 @@ export default function Home() {
         <div className="hero-inner">
           <div className="hero-left">
             <div className="hero-title-row">
-              <h1 className="hero-title">ExCALIBR</h1>
+              <h1 className="hero-title">exCALIBR</h1>
               <div className="hero-inline-links">
                 <a
                   href="https://doi.org/10.1101/2025.04.29.651326"
@@ -76,6 +117,9 @@ export default function Home() {
                 >
                   <GitHubIcon />
                 </a>
+                <Link to="/support" className="hero-meta-link">
+                  Support
+                </Link>
               </div>
             </div>
             <p className="hero-subtitle">
@@ -94,9 +138,10 @@ export default function Home() {
           <h2 className="section-title">Upload your dataset</h2>
           <p className="section-desc">
             Provide a CSV with variant effect scores. Each row requires a{" "}
-            <code>score</code> and <code>sample</code> column. Sample index 0
-            (pathogenic) is required along with at least one of index 1 (benign)
-            or 3 (synonymous).
+            <code>score</code> and <code>sample_assignments</code> column. Sample 
+            indices 0 (P/LP) and 2 (population) are required along with at least 
+            one of index 1 (B/LB) or 3 (synonymous). Use comma-separated indices (e.g.{" "}
+            <code>"1,2"</code>) to assign a row to multiple samples.
           </p>
 
           <div className="sample-key">
@@ -111,11 +156,13 @@ export default function Home() {
               </div>
             ))}
           </div>
+          
 
           <CSVUploader
-            onData={(data, name) => {
+            onData={(data, name, file) => {
               setRows(data);
               setFilename(name);
+              setRawFile(file);
               setShowDist(false);
             }}
           />
@@ -172,17 +219,25 @@ export default function Home() {
 
               <div className="submit-area">
                 <div className="submit-row">
-                  <button className="run-btn" onClick={handleSubmit}>
-                    Run calibration →
+                  <button
+                    className="run-btn"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Submitting…" : "Run calibration →"}
                   </button>
                   <input
                     type="email"
                     className="email-input"
-                    placeholder="Email for results link"
+                    placeholder="Email for results link (optional)"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={submitting}
                   />
                 </div>
+                {submitError && (
+                  <p className="submit-error">{submitError}</p>
+                )}
                 <p className="submit-note">
                   {params.nBootstraps.toLocaleString()} bootstraps ×{" "}
                   {params.fitsPerBootstrap} fits ·{" "}

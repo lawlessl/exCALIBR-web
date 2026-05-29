@@ -1,9 +1,10 @@
 import { useCallback, useState, useRef } from "react";
-import { parseCSV, groupBySample } from "../../utils/csvParser";
-import type { VariantRow } from "../../types";
+import { parseCSV, groupBySample } from "../../../utils/csvParser";
+import type { VariantRow } from "../../../types";
+import "./CSVUploader.css"
 
 interface CSVUploaderProps {
-  onData: (rows: VariantRow[], filename: string) => void;
+  onData: (rows: VariantRow[], filename: string, file: File) => void;
 }
 
 export default function CSVUploader({ onData }: CSVUploaderProps) {
@@ -41,22 +42,23 @@ export default function CSVUploader({ onData }: CSVUploaderProps) {
         }
 
         const hasPath = sampleIds.includes(0);
+        const hasPop = sampleIds.includes(2);
         const hasBenignOrSyn = sampleIds.includes(1) || sampleIds.includes(3);
 
-        if (!hasPath) {
-          setErrors(["Sample index 0 (Pathogenic/LP) is required."]);
+        if (!hasPath || !hasPop) {
+          setErrors(["Sample indices 0 (P/LP) and 2 (population) are required."]);
           return;
         }
         if (!hasBenignOrSyn) {
           setErrors([
-            "At least one of sample 1 (Benign) or sample 3 (Synonymous) is required.",
+            "At least one of sample index 1 (B/LB) or 3 (synonymous) is required.",
           ]);
           return;
         }
 
         setErrors([]);
         setFilename(file.name);
-        onData(data, file.name);
+        onData(data, file.name, file);
       };
       reader.readAsText(file);
     },
@@ -114,7 +116,7 @@ export default function CSVUploader({ onData }: CSVUploaderProps) {
             <div className="drop-requirements">
               <span>Required columns:</span>
               <code>score</code>
-              <code>sample</code>
+              <code>sample_assignments</code>
             </div>
           </div>
         )}

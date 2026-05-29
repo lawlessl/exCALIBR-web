@@ -1,4 +1,6 @@
-import { type PipelineParams, DEFAULT_PARAMS } from "../../types";
+import { useEffect, useState } from "react";
+import { type PipelineParams, DEFAULT_PARAMS } from "../../../types";
+import "./ParamPanel.css";
 
 interface ParamPanelProps {
   params: PipelineParams;
@@ -11,10 +13,49 @@ export default function ParamPanel({ params, onChange }: ParamPanelProps) {
     value: PipelineParams[K],
   ) => onChange({ ...params, [key]: value });
 
-  const handleInt = (key: "nBootstraps" | "fitsPerBootstrap", raw: string) => {
-    const n = parseInt(raw, 10);
-    if (!isNaN(n) && n > 0) set(key, n);
-  };
+  function NumericInput({
+    value,
+    min,
+    max,
+    step = 1,
+    onChange,
+  }: {
+    value: number;
+    min: number;
+    max: number;
+    step?: number;
+    onChange: (n: number) => void;
+  }) {
+    const [raw, setRaw] = useState(String(value));
+    const [focused, setFocused] = useState(false);
+  
+    useEffect(() => {
+      if (!focused) setRaw(String(value));
+    }, [value, focused]);
+  
+    return (
+      <input
+        type="number"
+        className="param-input"
+        min={min}
+        max={max}
+        step={step}
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          const n = step === 1 ? parseInt(raw, 10) : parseFloat(raw);
+          if (!isNaN(n) && n >= min && n <= max) {
+            onChange(n);
+            setRaw(String(n));
+          } else {
+            setRaw(String(value));
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="param-panel">
@@ -56,13 +97,11 @@ export default function ParamPanel({ params, onChange }: ParamPanelProps) {
           Higher values improve the quality of evidence assignments at the cost
           of longer runtime.
         </p>
-        <input
-          type="number"
-          className="param-input"
+        <NumericInput
+          value={params.nBootstraps}
           min={1}
           max={1000}
-          value={params.nBootstraps}
-          onChange={(e) => handleInt("nBootstraps", e.target.value)}
+          onChange={(n) => set("nBootstraps", n)}
         />
       </div>
 
@@ -76,13 +115,11 @@ export default function ParamPanel({ params, onChange }: ParamPanelProps) {
           Higher values improve the quality of the selected fit within each
           bootstrap iteration.
         </p>
-        <input
-          type="number"
-          className="param-input"
+        <NumericInput
+          value={params.fitsPerBootstrap}
           min={1}
           max={100}
-          value={params.fitsPerBootstrap}
-          onChange={(e) => handleInt("fitsPerBootstrap", e.target.value)}
+          onChange={(n) => set("fitsPerBootstrap", n)}
         />
       </div>
 
@@ -129,6 +166,36 @@ export default function ParamPanel({ params, onChange }: ParamPanelProps) {
           Removes evidence assignments that are not monotonic across the score
           range. Reduces unwanted evidence but cannot model datasets with both
           loss-of-function and gain-of-function pathomechanisms.
+        </p>
+      </div>
+
+      {/* Manual prior */}
+      <div className="param-group">
+        <div className="check-row">
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={params.manualPrior !== null}
+              onChange={(e) =>
+                set("manualPrior", e.target.checked ? 0.044 : null)
+              }
+              className="check-input"
+            />
+            <span className="check-text">Override prior probability</span>
+          </label>
+        </div>
+        {params.manualPrior !== null && (
+          <NumericInput
+            value={params.manualPrior}
+            min={0.001}
+            max={0.999}
+            step={0.001}
+            onChange={(v) => set("manualPrior", v)}
+          />
+        )}
+        <p className="param-desc">
+          Manually set the prior probability of pathogenicity instead of
+          estimating it from the data. Must be between 0 and 1.
         </p>
       </div>
 

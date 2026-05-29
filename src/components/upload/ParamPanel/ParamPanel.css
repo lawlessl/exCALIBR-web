@@ -1,0 +1,163 @@
+/* ── ParamPanel component ── */
+
+.param-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .param-title {
+    font-family: var(--font-mono);
+    font-size: 0.67rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .param-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  
+  .param-label {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .param-hint-inline {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 0.68rem;
+    color: var(--text-faint);
+  }
+  
+  .param-desc {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 0.35rem;
+  }
+  
+  .check-row {
+    margin-bottom: 0.3rem;
+  }
+  
+  .check-text {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    padding-left: 0.5rem;
+  }
+  
+  .param-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+  
+  .param-input,
+  .param-select {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 5px 8px;
+    width: 100%;
+    transition: border-color 0.14s;
+    outline: none;
+  }
+  
+  .param-input:focus,
+  .param-select:focus {
+    border-color: var(--accent-border);
+    background: var(--accent-light);
+  }
+  
+  .param-input::-webkit-outer-spin-button,
+  .param-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+  }
+  
+  .param-input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  
+  .component-toggles {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+  }
+  
+  .component-btn {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 5px 16px;
+    border: 1.5px solid var(--border-strong);
+    background: var(--bg-card);
+    color: var(--text-faint);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  
+  .component-btn:hover {
+    border-color: var(--text-muted);
+    color: var(--text-secondary);
+  }
+  
+  .component-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    font-weight: 600;
+  }
+  
+  .toggle-row {
+    margin-top: 0.1rem;
+  }
+  
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    font-size: 0.81rem;
+    color: var(--text-secondary);
+  }
+  
+  .toggle-input {
+    accent-color: var(--accent);
+  }
+  
+  .reset-btn {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 4px 11px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.13s, color 0.13s;
+    align-self: flex-start;
+  }
+  
+  .reset-btn:hover {
+    border-color: var(--border-strong);
+    color: var(--text-secondary);
+  }
