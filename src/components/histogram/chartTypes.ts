@@ -54,7 +54,7 @@ export const DEFAULT_CHART_DIMS: ChartDimensions = {
   width: 700,
   marginLeft: 80, // extra space for rotated category labels on left
   marginRight: 24,
-  marginTop: 12,
+  marginTop: 16, // extra space for tooltip
   marginBottom: 36,
   rowHeight: 110,
   rowGap: 12,

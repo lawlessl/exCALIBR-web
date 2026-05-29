@@ -685,24 +685,19 @@ export default function StackedHistogram({
                 ...(tooltip.flipLeft
                   ? { right: containerWidth - tooltip.x + 12 }
                   : { left: tooltip.x + 12 }),
-                top: MT + 8,
+                top: -28,
               }}
             >
-              <div className="chart-tooltip-score">
-                {tooltip.score.toFixed(4)}
+              <div className="chart-tooltip-top-row">
+                <div className="chart-tooltip-score">{tooltip.score.toFixed(4)}</div>
+                {tooltip.intervalKey ? (
+                  <div className="chart-tooltip-interval" style={{ color: tooltip.intervalColor ?? undefined }}>
+                    {tooltip.intervalKey}
+                  </div>
+                ) : (
+                  <div className="chart-tooltip-interval chart-tooltip-none">—</div>
+                )}
               </div>
-              {tooltip.intervalKey ? (
-                <div
-                  className="chart-tooltip-interval"
-                  style={{ color: tooltip.intervalColor ?? undefined }}
-                >
-                  {tooltip.intervalKey}
-                </div>
-              ) : (
-                <div className="chart-tooltip-interval chart-tooltip-none">
-                  —
-                </div>
-              )}
               {(tooltip.lrP5 !== null || tooltip.lrP95 !== null) && (
                 <div className="chart-tooltip-lr-table">
                   {tooltip.lrP5 !== null && (
